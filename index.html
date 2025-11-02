@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UK Cement Import Terminals Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background: white;
+            padding: 18px 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 0.95em;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 14px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .stat-icon {
+            font-size: 1.6em;
+            margin-bottom: 6px;
+        }
+
+        .stat-icon.total { color: #667eea; }
+        .stat-icon.regions { color: #764ba2; }
+        .stat-icon.companies { color: #f093fb; }
+        .stat-icon.types { color: #4facfe; }
+
+        .stat-value {
+            font-size: 1.6em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 6px 0;
+        }
+
+        .stat-label {
+            color: #999;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        /* Sidebar Filters */
+        .sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .clear-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            border-radius: 12px 12px 0 0;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-size: 0.9em;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .clear-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        .filters-container {
+            padding: 18px;
+        }
+
+        .filter-section {
+            margin-bottom: 20px;
+            padding-bottom: 18px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .filter-section:last-child {
+            border-bottom: none;
+        }
+
+        .filter-title {
+            font-size: 0.95em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-title i {
+            font-size: 1em;
+        }
+
+        .filter-count {
+            font-size: 0.75em;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-left: auto;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            transition: border-color 0.3s;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .checkbox-group {
+            max-height: 240px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 8px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 6px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+            font-size: 0.85em;
+            gap: 8px;
+        }
+
+        .checkbox-item:hover {
+            background: #f5f5f5;
+        }
+
+        .checkbox-item input {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            accent-color: #667eea;
+            flex-shrink: 0;
+        }
+
+        .company-logo-small {
+            width: 28px;
+            height: 28px;
+            border-radius: 3px;
+            object-fit: contain;
+            flex-shrink: 0;
+            border: 1px solid #e0e0e0;
+            padding: 2px;
+            background: #f9f9f9;
+        }
+
+        .checkbox-item label {
+            cursor: pointer;
+            flex: 1;
+            color: #555;
+        }
+
+        /* Content Area */
+        .content {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 18px;
+            font-size: 1.1em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: space-between;
+        }
+
+        .card-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .record-count {
+            background: rgba(255, 255, 255, 0.25);
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 0.8em;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        #map {
+            width: 100%;
+            height: 450px;
+            border-radius: 0 0 12px 12px;
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            letter-spacing: 0.4px;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background: #f8f8f8;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        .company-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .company-logo {
+            width: 50px;
+            height: 50px;
+            border-radius: 4px;
+            object-fit: contain;
+            border: 1px solid #e0e0e0;
+            padding: 4px;
+            background: #f9f9f9;
+        }
+
+        .company-name {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .port-name {
+            font-weight: 600;
+            color: #764ba2;
+        }
+
+        .region-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 0.75em;
+            font-weight: 500;
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .activity-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            background: #f3e5f5;
+            color: #7b1fa2;
+            font-weight: 500;
+        }
+
+        .capacity-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            background: #e8f5e9;
+            color: #2e7d32;
+            font-weight: 500;
+        }
+
+        .multiple-records {
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 4px;
+            font-size: 0.8em;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: static;
+                max-height: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.4em;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            th, td {
+                padding: 8px;
+                font-size: 0.8em;
+            }
+        }
+
+        /* Footer */
+        .footer {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            text-align: center;
+            color: #999;
+            font-size: 0.8em;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+
+        .no-results i {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 3px;
+        }
+
+        .checkbox-group {
+            scrollbar-color: #667eea #f1f1f1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <i class="fas fa-port"></i>
+                UK Cement Import Terminals
+            </h1>
+            <p>Interactive Dashboard with Advanced Filtering</p>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon total"><i class="fas fa-building"></i></div>
+                <div class="stat-value" id="totalCount">30</div>
+                <div class="stat-label">Total Records</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon regions"><i class="fas fa-anchor"></i></div>
+                <div class="stat-value">24</div>
+                <div class="stat-label">Unique Ports</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon companies"><i class="fas fa-industry"></i></div>
+                <div class="stat-value">21</div>
+                <div class="stat-label">Companies</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon types"><i class="fas fa-map"></i></div>
+                <div class="stat-value">7</div>
+                <div class="stat-label">Regions</div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Sidebar Filters -->
+            <div class="sidebar scrollbar">
+                <button class="clear-btn" id="clearBtn">
+                    <i class="fas fa-redo"></i> Clear All Filters
+                </button>
+
+                <div class="filters-container">
+                    <div class="filter-section">
+                        <div class="filter-title">
+                            <i class="fas fa-anchor"></i>
+                            Ports / Sites
+                            <span class="filter-count" id="portCount">0</span>
+                        </div>
+                        <input type="text" id="portSearch" class="search-box" placeholder="Search ports...">
+                        <div class="checkbox-group scrollbar" id="portFilter"></div>
+                    </div>
+
+                    <div class="filter-section">
+                        <div class="filter-title">
+                            <i class="fas fa-search"></i>
+                            Quick Search
+                        </div>
+                        <input type="text" id="searchBox" class="search-box" placeholder="Search company, activity...">
+                    </div>
+
+                    <div class="filter-section">
+                        <div class="filter-title">
+                            <i class="fas fa-building"></i>
+                            Companies
+                            <span class="filter-count" id="companyCount">0</span>
+                        </div>
+                        <div class="checkbox-group scrollbar" id="companyFilter"></div>
+                    </div>
+
+                    <div class="filter-section">
+                        <div class="filter-title">
+                            <i class="fas fa-map"></i>
+                            Regions
+                            <span class="filter-count" id="regionCount">0</span>
+                        </div>
+                        <div class="checkbox-group scrollbar" id="regionFilter"></div>
+                    </div>
+
+                    <div class="filter-section">
+                        <div class="filter-title">
+                            <i class="fas fa-cogs"></i>
+                            Activity Type
+                            <span class="filter-count" id="activityCount">0</span>
+                        </div>
+                        <div class="checkbox-group scrollbar" id="activityFilter"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+                <!-- Map -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-header-left">
+                            <i class="fas fa-map-marked-alt"></i>
+                            Interactive Map
+                        </div>
+                        <span class="record-count" id="mapCount">30 terminals</span>
+                    </div>
+                    <div id="map"></div>
+                </div>
+
+                <!-- Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-header-left">
+                            <i class="fas fa-table"></i>
+                            Detailed Terminal Information
+                        </div>
+                        <span class="record-count" id="tableCount">30 records</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container" id="tableContainer">
+                            <table id="dataTable">
+                                <thead>
+                                    <tr>
+                                        <th>Port / Site Name</th>
+                                        <th>Company / Operator</th>
+                                        <th>Region</th>
+                                        <th>Activity Type</th>
+                                        <th>Capacity / Throughput</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div class="no-results" id="noResults" style="display: none;">
+                            <i class="fas fa-search"></i>
+                            <p>No records match your filters</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>
+                <i class="fas fa-info-circle"></i>
+                Dashboard by Mostafa Abdel Ghafar | Royal El Minya Cement Company - Export Department | November 2025
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Logo Dictionary
+        const companyLogos = {
+            'Associated British Ports (ABP)': 'https://www.abports.co.uk/media/shcb5ld1/logo-hover.svg',
+            'Breedon Group': 'https://www.breedongroup.com/content/experience-fragments/breedon/corporate/header/master/_jcr_content/root/container/container/image.coreimg.svg/1.664292290877e+12/breedon-logo.svg',
+            'Brett Group': 'https://www.brett.co.uk/images/group/logo.png',
+            'CEMEX UK': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/CEMEX_logo.svg/1024px-CEMEX_logo.svg.png',
+            'Cemex UK': 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/CEMEX_logo.svg/1024px-CEMEX_logo.svg.png',
+            'Cemineral': 'https://cemminerals.be/wp-content/uploads/2018/06/cropped-cemminerals-FINAL-220x80.png',
+            'Cimpor': 'https://www.cimpor.com/image/layout_set_logo?img_id=1176996&t=1.738663677167e+12',
+            'Damac Bulk Handling': 'https://damac.co.uk/wp-content/uploads/2024/11/TDH-Logo.png',
+            'Dragon Alpha Cement (CPV)': 'https://lirp.cdn-website.com/df5578f6/dms3rep/multi/opt/logo-128w.png',
+            'Ecocem': 'https://www.ecocemglobal.com/wp-content/uploads/2022/12/Ecocem-white-logo.svg',
+            'Euromecc': 'https://www.euromecc.com/wp-content/uploads/2021/05/Logo_Euromecc_340-300x81.png',
+            'Hercules Enterprises (Cementos La Cruz)': 'https://www.cementoscruz.com/wp-content/uploads/2023/08/CLC-H-C-300x107.png',
+            'Holcim UK': 'https://www.holcim.co.uk/themes/custom/corporate_country/components/header/images/holcim_logo_color.svg',
+            'Hutchison Ports (Harwich)': 'https://www.harwich.co.uk/wp-content/themes/harwich-international/src/images/harwich-international.svg',
+            'Lafarge Tarmac': 'https://www.lafarge.com.eg/themes/custom/corporate_lafarge/components/header/images/holcim_logo_color.svg',
+            'Medcem / Brett JV': 'https://cdn.prod.website-files.com/6669f36932dc45edd648ef6e/6669f36932dc45edd648efdc_Nav-logo.svg',
+            'Peel Ports / Medcem': 'https://medcem.com.tr/uploads/site/logo-black.png',
+            'Premier Cement / Southern Cement': 'https://www.premiercement.co.uk/wp-content/themes/PCL_theme/images/premier-cement-logo.jpg',
+            'Solent Stevedores': 'https://via.placeholder.com/60?text=SS',
+            'Tarmac (CRH)': 'https://uploadstarmaccom.blob.core.windows.net/uploads/2019/10/tarmaclogo.svg',
+            'Titan Cement UK': 'https://www.titanuk.co.uk/assets/img/Titans-logo.jpg'
+        };
+
+        // Complete Data
+        const allData = [
+            {company: "Peel Ports / Medcem", port: "Port of Liverpool (Gladstone Dock)", region: "Northwest", activity: "Import / Storage (Development)", capacity: "1,000,000+ tpa (planned)", lat: 53.446, lng: -3.003},
+            {company: "Holcim UK", port: "Port of Tilbury (Tilbury Docks)", region: "Southeast", activity: "Import / Bulk Handling", capacity: "30,000 tonnes storage", lat: 51.460, lng: 0.353},
+            {company: "CEMEX UK", port: "Port of Tilbury (Tilbury Docks)", region: "Southeast", activity: "Import / Grinding", capacity: "1,000,000 tpa", lat: 51.460, lng: 0.353},
+            {company: "Tarmac (CRH)", port: "West Thurrock Jetty (Port of London)", region: "Southeast", activity: "Import / Distribution", capacity: "400,000 tpa", lat: 51.482, lng: 0.274},
+            {company: "Brett Group", port: "Ridham Dock (Kent)", region: "Southeast", activity: "Import / Storage", capacity: "300,000 tpa", lat: 51.391, lng: 0.785},
+            {company: "Medcem / Brett JV", port: "Port of Sheerness", region: "Southeast", activity: "Import / Blending", capacity: "250,000 tpa (est.)", lat: 51.439, lng: 0.760},
+            {company: "Ecocem", port: "Port of Sheerness", region: "Southeast", activity: "Import / Blending", capacity: "200,000 tpa", lat: 51.439, lng: 0.760},
+            {company: "Hercules Enterprises (Cementos La Cruz)", port: "Port of Sheerness", region: "Southeast", activity: "Import / Development", capacity: "250,000 tpa (planned)", lat: 51.439, lng: 0.760},
+            {company: "Hutchison Ports (Harwich)", port: "Port of Harwich", region: "Southeast", activity: "Import / Storage", capacity: "150,000 tpa (est.)", lat: 51.944, lng: 1.279},
+            {company: "Solent Stevedores", port: "Port of Southampton (Western Docks)", region: "Southeast", activity: "Import / Storage", capacity: "200,000 tpa", lat: 50.896, lng: -1.414},
+            {company: "Holcim UK", port: "Port of Southampton", region: "Southeast", activity: "Import / Distribution", capacity: "300,000 tpa", lat: 50.896, lng: -1.414},
+            {company: "Cimpor", port: "Royal Portbury Dock (Port of Bristol)", region: "Southwest", activity: "Import / Development", capacity: "300,000 tpa (planned)", lat: 51.484, lng: -2.704},
+            {company: "Dragon Alpha Cement (CPV)", port: "Sharpness Docks (River Severn)", region: "Southwest", activity: "Import / Distribution", capacity: "100,000 tpa", lat: 51.728, lng: -2.486},
+            {company: "Dragon Alpha Cement (CPV)", port: "Portland Harbour", region: "Southwest", activity: "Import / Distribution", capacity: "80,000 tpa", lat: 50.573, lng: -2.444},
+            {company: "Euromecc", port: "Port of Plymouth", region: "Southwest", activity: "Import / Automated Distribution", capacity: "12,000 tonnes storage", lat: 50.371, lng: -4.154},
+            {company: "Cemex UK", port: "Port of Newport", region: "South Wales", activity: "Import / Storage", capacity: "250,000 tpa", lat: 51.548, lng: -2.989},
+            {company: "Cemineral", port: "Port of Newport", region: "South Wales", activity: "Grinding / Production", capacity: "400,000 tpa (planned)", lat: 51.548, lng: -2.989},
+            {company: "Premier Cement / Southern Cement", port: "Port of Swansea", region: "South Wales", activity: "Import / Distribution", capacity: "150,000 tpa", lat: 51.623, lng: -3.944},
+            {company: "Cemineral", port: "Port of Immingham", region: "East Coast (Humber)", activity: "Import / Blending", capacity: "300,000 tpa", lat: 53.620, lng: -0.214},
+            {company: "Solent Stevedores", port: "Port of Immingham", region: "East Coast (Humber)", activity: "Import / Storage", capacity: "200,000 tpa", lat: 53.620, lng: -0.214},
+            {company: "Associated British Ports (ABP)", port: "Port of Immingham", region: "East Coast (Humber)", activity: "Storage / Logistics", capacity: "24,000 tonnes storage", lat: 53.620, lng: -0.214},
+            {company: "Titan Cement UK", port: "Port of Hull (King George Dock)", region: "East Coast (Humber)", activity: "Import / Distribution", capacity: "400,000 tpa", lat: 53.744, lng: -0.280},
+            {company: "Damac Bulk Handling", port: "Port of Goole", region: "East Coast (Humber)", activity: "Import / Storage", capacity: "150,000 tpa", lat: 53.704, lng: -0.874},
+            {company: "Ecocem", port: "Runcorn (Mersey Port)", region: "Northwest", activity: "Grinding / Blending", capacity: "300,000 tpa", lat: 53.341, lng: -2.736},
+            {company: "Holcim UK", port: "Ellesmere Port", region: "Northwest", activity: "Import / Distribution", capacity: "200,000 tpa", lat: 53.287, lng: -2.897},
+            {company: "Breedon Group", port: "Blyth Port", region: "Northeast", activity: "Import / Distribution", capacity: "200,000 tpa", lat: 55.125, lng: -1.509},
+            {company: "Breedon Group", port: "Runcorn", region: "Northwest", activity: "Import / Blending", capacity: "250,000 tpa", lat: 53.341, lng: -2.736},
+            {company: "Breedon Group", port: "Leith (Edinburgh)", region: "Scotland", activity: "Import / Distribution", capacity: "150,000 tpa", lat: 55.980, lng: -3.165},
+            {company: "Holcim UK", port: "Grangemouth", region: "Scotland", activity: "Import / Distribution", capacity: "200,000 tpa", lat: 56.019, lng: -3.720},
+            {company: "Lafarge Tarmac", port: "Ayr Harbour", region: "Scotland", activity: "Import / Storage", capacity: "150,000 tpa", lat: 55.462, lng: -4.645}
+        ];
+
+        let filteredData = [...allData];
+        let map;
+        let markers = [];
+
+        // Initialize
+        function init() {
+            initMap();
+            populateFilters();
+            renderTable();
+            attachEventListeners();
+            updateFilterCounts();
+            renderMap();
+        }
+
+        // Initialize Map
+        function initMap() {
+            map = L.map('map').setView([54.5, -3.435], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19
+            }).addTo(map);
+        }
+
+        // Populate Filters
+        function populateFilters() {
+            const ports = [...new Set(allData.map(d => d.port))].sort();
+            const companies = [...new Set(allData.map(d => d.company))].sort();
+            const regions = [...new Set(allData.map(d => d.region))].sort();
+            const activities = [...new Set(allData.map(d => d.activity))].sort();
+
+            populateCheckboxGroup('portFilter', ports);
+            populateCheckboxGroup('companyFilter', companies, true);
+            populateCheckboxGroup('regionFilter', regions);
+            populateCheckboxGroup('activityFilter', activities);
+        }
+
+        function populateCheckboxGroup(elementId, items, withLogo = false) {
+            const container = document.getElementById(elementId);
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'checkbox-item';
+                
+                let logoHtml = '';
+                if (withLogo && companyLogos[item]) {
+                    logoHtml = `<img src="${companyLogos[item]}" alt="${item}" class="company-logo-small" onerror="this.style.display='none'">`;
+                }
+                
+                div.innerHTML = `
+                    <input type="checkbox" value="${item}" class="filter-checkbox" data-filter="${elementId}">
+                    ${logoHtml}
+                    <label>${item}</label>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Attach Event Listeners
+        function attachEventListeners() {
+            document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    applyFilters();
+                    updateFilterCounts();
+                });
+            });
+            document.getElementById('searchBox').addEventListener('keyup', applyFilters);
+            document.getElementById('portSearch').addEventListener('keyup', filterPortList);
+            document.getElementById('clearBtn').addEventListener('click', clearFilters);
+        }
+
+        // Filter Port List
+        function filterPortList() {
+            const searchTerm = document.getElementById('portSearch').value.toLowerCase();
+            const checkboxItems = document.querySelectorAll('#portFilter .checkbox-item');
+            
+            checkboxItems.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(searchTerm) ? 'flex' : 'none';
+            });
+        }
+
+        // Update Filter Counts
+        function updateFilterCounts() {
+            document.getElementById('portCount').textContent = 
+                document.querySelectorAll('#portFilter input:checked').length;
+            document.getElementById('companyCount').textContent = 
+                document.querySelectorAll('#companyFilter input:checked').length;
+            document.getElementById('regionCount').textContent = 
+                document.querySelectorAll('#regionFilter input:checked').length;
+            document.getElementById('activityCount').textContent = 
+                document.querySelectorAll('#activityFilter input:checked').length;
+        }
+
+        // Apply Filters
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            const selectedPorts = Array.from(document.querySelectorAll('#portFilter input:checked')).map(c => c.value);
+            const selectedCompanies = Array.from(document.querySelectorAll('#companyFilter input:checked')).map(c => c.value);
+            const selectedRegions = Array.from(document.querySelectorAll('#regionFilter input:checked')).map(c => c.value);
+            const selectedActivities = Array.from(document.querySelectorAll('#activityFilter input:checked')).map(c => c.value);
+
+            filteredData = allData.filter(item => {
+                const matchSearch = !searchTerm || 
+                    item.company.toLowerCase().includes(searchTerm) ||
+                    item.port.toLowerCase().includes(searchTerm) ||
+                    item.activity.toLowerCase().includes(searchTerm);
+
+                const matchPort = selectedPorts.length === 0 || selectedPorts.includes(item.port);
+                const matchCompany = selectedCompanies.length === 0 || selectedCompanies.includes(item.company);
+                const matchRegion = selectedRegions.length === 0 || selectedRegions.includes(item.region);
+                const matchActivity = selectedActivities.length === 0 || selectedActivities.includes(item.activity);
+
+                return matchSearch && matchPort && matchCompany && matchRegion && matchActivity;
+            });
+
+            renderTable();
+            renderMap();
+            updateCounts();
+        }
+
+        // Render Table
+        function renderTable() {
+            const tbody = document.querySelector('#dataTable tbody');
+            const noResults = document.getElementById('noResults');
+            tbody.innerHTML = '';
+
+            if (filteredData.length === 0) {
+                noResults.style.display = 'block';
+                return;
+            }
+
+            noResults.style.display = 'none';
+
+            const groupedByPort = {};
+            filteredData.forEach(item => {
+                if (!groupedByPort[item.port]) {
+                    groupedByPort[item.port] = [];
+                }
+                groupedByPort[item.port].push(item);
+            });
+
+            filteredData.forEach(item => {
+                const row = tbody.insertRow();
+                const portData = groupedByPort[item.port];
+                const isMultiple = portData.length > 1;
+                const logoUrl = companyLogos[item.company] || '';
+                const logoImg = logoUrl ? `<img src="${logoUrl}" alt="${item.company}" class="company-logo" onerror="this.style.display='none'">` : '';
+
+                row.innerHTML = `
+                    <td><span class="port-name">${item.port}</span></td>
+                    <td>
+                        <div class="company-cell">
+                            ${logoImg}
+                            <span class="company-name">${item.company}</span>
+                        </div>
+                    </td>
+                    <td><span class="region-badge">${item.region}</span></td>
+                    <td><span class="activity-badge">${item.activity}</span></td>
+                    <td>
+                        <span class="capacity-badge">${item.capacity}</span>
+                        ${isMultiple ? `<div class="multiple-records"><i class="fas fa-info-circle"></i> ${portData.length} companies</div>` : ''}
+                    </td>
+                `;
+            });
+        }
+
+        // Render Map
+        function renderMap() {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#fa709a'];
+            const regions = [...new Set(filteredData.map(d => d.region))];
+
+            filteredData.forEach((item, index) => {
+                try {
+                    const regionIndex = regions.indexOf(item.region);
+                    const color = colors[regionIndex % colors.length];
+                    
+                    if (isNaN(item.lat) || isNaN(item.lng)) return;
+
+                    const marker = L.circleMarker([item.lat, item.lng], {
+                        radius: 10,
+                        fillColor: color,
+                        color: '#fff',
+                        weight: 3,
+                        opacity: 0.9,
+                        fillOpacity: 0.85
+                    }).addTo(map);
+
+                    const portCompanies = filteredData.filter(d => d.port === item.port);
+
+                    const popupContent = `
+                        <div style="font-size: 12px; width: 300px;">
+                            <strong style="font-size: 14px; color: #667eea;">${item.port}</strong><br>
+                            <strong>Region:</strong> ${item.region}<br>
+                            <strong>Companies (${portCompanies.length}):</strong><br>
+                            ${portCompanies.map((p, i) => `
+                                <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                    ${companyLogos[p.company] ? `<img src="${companyLogos[p.company]}" alt="${p.company}" style="max-width: 40px; max-height: 25px; border-radius: 2px;">` : ''}
+                                    <span>${p.company}</span>
+                                </div>
+                            `).join('')}
+                            <br><strong>Activities:</strong><br>
+                            ${portCompanies.map((p, i) => `${i + 1}. ${p.activity}`).join('<br>')}
+                        </div>
+                    `;
+
+                    marker.bindPopup(popupContent);
+                    marker.on('mouseover', function() { this.openPopup(); });
+                    marker.on('mouseout', function() { this.closePopup(); });
+                    
+                    markers.push(marker);
+                } catch (error) {
+                    console.error(`Error adding marker for ${item.port}:`, error);
+                }
+            });
+
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        // Update Counts
+        function updateCounts() {
+            document.getElementById('totalCount').textContent = filteredData.length;
+            document.getElementById('mapCount').textContent = `${filteredData.length} terminal${filteredData.length !== 1 ? 's' : ''}`;
+            document.getElementById('tableCount').textContent = `${filteredData.length} record${filteredData.length !== 1 ? 's' : ''}`;
+        }
+
+        // Clear Filters
+        function clearFilters() {
+            document.querySelectorAll('.filter-checkbox').forEach(c => c.checked = false);
+            document.getElementById('searchBox').value = '';
+            document.getElementById('portSearch').value = '';
+            document.querySelectorAll('#portFilter .checkbox-item').forEach(item => item.style.display = 'flex');
+            applyFilters();
+            updateFilterCounts();
+        }
+
+        // Start
+        window.addEventListener('load', init);
+        setTimeout(() => {
+            if (markers.length === 0) renderMap();
+        }, 500);
+    </script>
+</body>
+</html>
